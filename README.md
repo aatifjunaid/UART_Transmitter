@@ -113,9 +113,11 @@ The generated waveform verified:
 
 ## Waveform
 
-<img width="959" height="473" alt="image" src="https://github.com/user-attachments/assets/539ae678-ff85-45ac-9b54-59162305dfe1" />
-<img width="948" height="434" alt="image" src="https://github.com/user-attachments/assets/81d00ea0-0a9a-494e-b62a-c62175709d6f" />
-<img width="950" height="341" alt="image" src="https://github.com/user-attachments/assets/5ce2811a-d0e2-40af-84cb-78da03a45dc1" />
+<img width="952" height="317" alt="Screenshot 2026-10-14 102004" src="https://github.com/user-attachments/assets/f861e18c-4638-41b2-9767-590cc5c05703" />
+
+<img width="949" height="349" alt="Screenshot 2026-10-14 102022" src="https://github.com/user-attachments/assets/cd0f834f-7da5-476c-96f7-c8b93795d003" />
+
+
 
 
 
