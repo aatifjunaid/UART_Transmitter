@@ -123,7 +123,7 @@ module uart_tx_tb;
         // then the summary:
         $display("Tests passed: %0d, failed: %0d", pass_count, fail_count);
         if (fail_count == 0) $display("ALL TESTS PASSED");
-        else                 $display("SOME TESTS FAILED");
+        else                 $display("%0d TESTS FAILED",fail_count);
     
         $finish;
     end
