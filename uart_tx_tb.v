@@ -1,5 +1,3 @@
-// Code your testbench here
-// or browse Examples
 `timescale 1ns/1ps
 
 module uart_tx_tb;
