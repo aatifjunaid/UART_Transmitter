@@ -136,6 +136,13 @@ images/waveform_0x55.png
 
 Transmission of byte `0x55`. The `tx` line goes low for the start bit, sends the 8 data bits LSB first (1,0,1,0,1,0,1,0), then returns high for the stop bit. `busy` stays high for the whole frame, `done` pulses once at the end, and `state` moves through START (1) → DATA (2) → STOP (3) → IDLE (0).
 
+
+### Full Simulation
+
+<img width="950" height="100" alt="image" src="https://github.com/user-attachments/assets/75420052-74e2-4c7b-8f95-25e70ae79f26" />
+
+Full testbench run: 15 bytes transmitted (0x00, 0xFF, 0x55, 0xAA, 0xA5 and 10 random values), all passing. `busy` stays high for each frame, `done` pulses once per byte, and `state` cycles through START → DATA → STOP → IDLE for every transmission.
+
 ---
 
 ## Synthesis (Yosys)
