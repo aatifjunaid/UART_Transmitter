@@ -123,17 +123,13 @@ Results are reported as `PASS`/`FAIL` per byte, followed by `ALL TESTS PASSED` w
 
 ## Waveform
 
+### Single Frame (0x55)
+
 <img width="951" height="101" alt="Screenshot 2026-11-01 011921" src="https://github.com/user-attachments/assets/4c32860c-268f-4153-88a0-503543b6aa90" />
-
-
 
 ```
 images/waveform_0x55.png
 ```
-
-### Single Frame (0x55)
-
-
 Transmission of byte `0x55`. The `tx` line goes low for the start bit, sends the 8 data bits LSB first (1,0,1,0,1,0,1,0), then returns high for the stop bit. `busy` stays high for the whole frame, `done` pulses once at the end, and `state` moves through START (1) → DATA (2) → STOP (3) → IDLE (0).
 
 
