@@ -1,4 +1,4 @@
-  # UART Transmitter using Verilog HDL
+# UART Transmitter using Verilog HDL
 
 ## Overview
 
@@ -21,6 +21,7 @@ The transmitter follows the standard UART frame format consisting of:
 - Busy and Done status signals
 - Custom Verilog testbench
 - Simulation waveform verification
+- Logic synthesis using Yosys (gate-level netlist and area report)
 
 ---
 
@@ -30,6 +31,8 @@ The transmitter follows the standard UART frame format consisting of:
 UART-Transmitter/
 │── uart_tx.v          // UART Transmitter RTL
 │── uart_tx_tb.v       // Testbench
+│── uart_tx_synth.v    // Yosys synthesized gate-level netlist
+│── synth_report.txt   // Yosys synthesis log and statistics
 │── README.md
 │── images/
 │     └── waveform.png
@@ -93,21 +96,28 @@ The UART transmitter operates using four states:
 
 ## Simulation
 
-The design was verified using a custom Verilog testbench.
+The design was verified using a self-checking Verilog testbench (`uart_tx_tb.v`).
 
-The following data bytes were transmitted during simulation:
+The testbench uses a small `CLKS_PER_BIT` (16) for fast simulation, and includes:
 
-- 0x55
-- 0xA5
-- 0xFF
+- A `send_byte` task that drives `tx_start` and `tx_data`
+- A `receive_and_check` task that samples the `tx` line at the middle of each bit (LSB first), reconstructs the byte and compares it with the expected value, also checking the stop bit
+- A pass/fail counter with a final summary
 
-The generated waveform verified:
+Test data:
 
-- Correct Start Bit generation
+- Directed bytes: 0x00, 0xFF, 0x55, 0xAA, 0xA5
+- 10 random bytes (`$random`)
+
+The simulation verified:
+
+- Correct start bit generation
 - LSB-first serial transmission
-- Correct Stop Bit generation
+- Correct stop bit generation
 - Proper FSM state transitions
 - Busy and Done signal operation
+
+Results are reported as `PASS`/`FAIL` per byte, followed by `ALL TESTS PASSED` when no failures occur.
 
 ---
 
@@ -127,11 +137,62 @@ images/waveform.png
 
 ---
 
+## Synthesis (Yosys)
+
+The design was synthesized using the open-source **Yosys** synthesis tool (v0.52, run on Ubuntu via WSL) to convert the RTL into a generic gate-level netlist.
+
+### Command
+
+```
+yosys -p "read_verilog uart_tx.v; synth -top uart_tx; stat; write_verilog uart_tx_synth.v" | tee synth_report.txt
+```
+
+### Output Files
+
+| File | Description |
+|------|-------------|
+| `uart_tx_synth.v` | Synthesized gate-level netlist |
+| `synth_report.txt` | Full Yosys log with the `stat` summary |
+
+### Synthesis Results
+
+| Metric | Value |
+|--------|-------|
+| Number of ports | 7 |
+| Number of port bits | 14 |
+| Number of public wire bits | 45 |
+| Total cells | 171 |
+| Flip-flops | 34 |
+| Memories | 0 |
+
+### Cell Breakdown
+
+| Cell Type | Count |
+|-----------|-------|
+| `$_OR_` | 37 |
+| `$_ANDNOT_` | 43 |
+| `$_XOR_` | 15 |
+| `$_ORNOT_` | 13 |
+| `$_DFF_PP0_` | 20 |
+| `$_DFFE_PP0P_` | 12 |
+| `$_MUX_` | 10 |
+| `$_NAND_` | 8 |
+| `$_AND_` | 4 |
+| `$_NOR_` | 3 |
+| `$_DFF_PP1_` | 2 |
+| `$_NOT_` | 2 |
+| `$_XNOR_` | 2 |
+
+The design has 32 register bits (2-bit state, 8-bit shift register, 3-bit bit index, 16-bit baud counter, and the `tx`, `busy` and `done` outputs). Yosys reports 34 flip-flops because it re-encoded the 2-bit FSM state as one-hot (4 flip-flops). The remaining cells are combinational logic. The testbench is excluded from synthesis since it is not synthesizable.
+
+---
+
 ## Tools Used
 
 - Verilog HDL
 - EDA Playground
 - EPWave
+- Yosys (logic synthesis)
 
 ---
 
@@ -142,6 +203,8 @@ images/waveform.png
 - Configurable stop bits
 - Parameterized data width
 - SystemVerilog-based verification
+- Post-synthesis (gate-level) simulation
+- Timing and area analysis for a target FPGA/ASIC flow
 
 ---
 
