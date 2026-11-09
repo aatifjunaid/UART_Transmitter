@@ -22,6 +22,7 @@ The transmitter follows the standard UART frame format consisting of:
 - Custom Verilog testbench
 - Simulation waveform verification
 - Logic synthesis using Yosys (gate-level netlist and area report)
+- Post-synthesis (gate-level) simulation using the same testbench
 
 ---
 
@@ -29,13 +30,17 @@ The transmitter follows the standard UART frame format consisting of:
 
 ```
 UART-Transmitter/
-│── uart_tx.v          // UART Transmitter RTL
-│── uart_tx_tb.v       // Testbench
-│── uart_tx_synth.v    // Yosys synthesized gate-level netlist
-│── synth_report.txt   // Yosys synthesis log and statistics
+│── uart_tx.v             // UART Transmitter RTL
+│── uart_tx_tb.v          // Testbench
+│── uart_tx_synth_16.v    // Yosys synthesized gate-level netlist (CLKS_PER_BIT = 16)
+│── synth_report_16.txt   // Yosys synthesis log and statistics
 │── README.md
 │── images/
-│     └── waveform.png
+│     ├── waveform_0x55.png
+│     ├── waveform_full.png
+│     ├── post_synth_console.png
+│     ├── post_synth_waveform_0x55.png
+│     └── post_synth_waveform_full.png
 ```
 
 ---
@@ -127,9 +132,6 @@ Results are reported as `PASS`/`FAIL` per byte, followed by `ALL TESTS PASSED` w
 
 <img width="951" height="101" alt="Screenshot 2026-11-01 011921" src="https://github.com/user-attachments/assets/4c32860c-268f-4153-88a0-503543b6aa90" />
 
-```
-images/waveform_0x55.png
-```
 Transmission of byte `0x55`. The `tx` line goes low for the start bit, sends the 8 data bits LSB first (1,0,1,0,1,0,1,0), then returns high for the stop bit. `busy` stays high for the whole frame, `done` pulses once at the end, and `state` moves through START (1) → DATA (2) → STOP (3) → IDLE (0).
 
 
@@ -145,18 +147,20 @@ Full testbench run: 15 bytes transmitted (0x00, 0xFF, 0x55, 0xAA, 0xA5 and 10 ra
 
 The design was synthesized using the open-source **Yosys** synthesis tool (v0.52, run on Ubuntu via WSL) to convert the RTL into a generic gate-level netlist.
 
+The `CLKS_PER_BIT` parameter is set to 16 during synthesis (`chparam`), so the netlist matches the configuration used in the testbench.
+
 ### Command
 
 ```
-yosys -p "read_verilog uart_tx.v; synth -top uart_tx; stat; write_verilog uart_tx_synth.v" | tee synth_report.txt
+yosys -p "read_verilog uart_tx.v; chparam -set CLKS_PER_BIT 16 uart_tx; synth -top uart_tx; stat; write_verilog uart_tx_synth_16.v" | tee synth_report_16.txt
 ```
 
 ### Output Files
 
 | File | Description |
 |------|-------------|
-| `uart_tx_synth.v` | Synthesized gate-level netlist |
-| `synth_report.txt` | Full Yosys log with the `stat` summary |
+| `uart_tx_synth_16.v` | Synthesized gate-level netlist |
+| `synth_report_16.txt` | Full Yosys log with the `stat` summary |
 
 ### Synthesis Results
 
@@ -165,24 +169,25 @@ yosys -p "read_verilog uart_tx.v; synth -top uart_tx; stat; write_verilog uart_t
 | Number of ports | 7 |
 | Number of port bits | 14 |
 | Number of public wire bits | 45 |
-| Total cells | 171 |
+| Total cells | 174 |
 | Flip-flops | 34 |
+| Combinational gates | 140 |
 | Memories | 0 |
 
 ### Cell Breakdown
 
 | Cell Type | Count |
 |-----------|-------|
-| `$_OR_` | 37 |
-| `$_ANDNOT_` | 43 |
+| `$_ANDNOT_` | 42 |
+| `$_OR_` | 39 |
 | `$_XOR_` | 15 |
-| `$_ORNOT_` | 13 |
 | `$_DFF_PP0_` | 20 |
 | `$_DFFE_PP0P_` | 12 |
-| `$_MUX_` | 10 |
-| `$_NAND_` | 8 |
+| `$_MUX_` | 11 |
+| `$_NAND_` | 9 |
+| `$_ORNOT_` | 9 |
+| `$_NOR_` | 7 |
 | `$_AND_` | 4 |
-| `$_NOR_` | 3 |
 | `$_DFF_PP1_` | 2 |
 | `$_NOT_` | 2 |
 | `$_XNOR_` | 2 |
@@ -191,10 +196,42 @@ The design has 32 register bits (2-bit state, 8-bit shift register, 3-bit bit in
 
 ---
 
+## Post-Synthesis Simulation
+
+To confirm that synthesis preserved the design's functionality, the same self-checking testbench was run on the synthesized gate-level netlist (`uart_tx_synth_16.v`) instead of the RTL.
+
+- **Simulator:** Icarus Verilog (EDA Playground)
+- **Design under test:** `uart_tx_synth_16.v`
+- **Testbench:** `uart_tx_tb.v`, unchanged except that the `#(.CLKS_PER_BIT(16))` parameter override was removed, since the netlist has no parameters (the value is already fixed at 16 during synthesis)
+- **Type:** zero-delay gate-level simulation (no timing annotation)
+
+**Result:** all 15 bytes (5 directed + 10 random) passed, matching the RTL simulation.
+
+### Console Output
+
+<img src="images/post_synth_console.png" alt="Post-synthesis simulation console output" width="500"/>
+
+### Single Frame (0x55)
+
+<img src="images/post_synth_waveform_0x55.png" alt="Post-synthesis waveform for byte 0x55"/>
+
+Gate-level waveform for byte `0x55`: start bit, 8 data bits LSB first, then the stop bit. The behavior is identical to the RTL simulation.
+
+### Full Simulation
+
+<img src="images/post_synth_waveform_full.png" alt="Post-synthesis full simulation waveform"/>
+
+Gate-level simulation of all 15 bytes, with `done` pulsing once per byte.
+
+> Internal signals such as `state` are not shown, because Yosys re-encodes the FSM and renames internal wires in the netlist. Only the top-level ports are compared.
+
+---
+
 ## Tools Used
 
 - Verilog HDL
 - EDA Playground
+- Icarus Verilog
 - EPWave
 - Yosys (logic synthesis)
 
@@ -207,7 +244,6 @@ The design has 32 register bits (2-bit state, 8-bit shift register, 3-bit bit in
 - Configurable stop bits
 - Parameterized data width
 - SystemVerilog-based verification
-- Post-synthesis (gate-level) simulation
 - Timing and area analysis for a target FPGA/ASIC flow
 
 ---
